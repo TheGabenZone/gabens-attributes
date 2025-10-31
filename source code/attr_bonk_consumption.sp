@@ -14,7 +14,7 @@
 
 public Plugin myinfo = 
 {
-	name = "Bonk Consumption Boost",
+	name = "Attribute: Bonk Consumption Boost",
 	author = "TheGabenZone",
 	description = "Custom bonk effect when consuming lunchbox items",
 	version = PLUGIN_VERSION,

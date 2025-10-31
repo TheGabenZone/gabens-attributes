@@ -14,7 +14,7 @@
 
 public Plugin myinfo = 
 {
-	name = "Jump While Charging",
+	name = "Attribute: Jump While Charging",
 	author = "TheGabenZone",
 	description = "Allows Demoman to jump while shield charging",
 	version = PLUGIN_VERSION,

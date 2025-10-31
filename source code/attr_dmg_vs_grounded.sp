@@ -14,7 +14,7 @@
 
 public Plugin myinfo = 
 {
-	name = "Damage vs Grounded Targets",
+	name = "Attribute: Damage vs Grounded Targets",
 	author = "TheGabenZone",
 	description = "Increases damage against grounded targets",
 	version = PLUGIN_VERSION,

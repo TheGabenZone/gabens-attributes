@@ -17,7 +17,7 @@
 
 public Plugin myinfo = 
 {
-	name = "Banner Boost",
+	name = "Attribute: Banner Boost",
 	author = "TheGabenZone",
 	description = "Custom banner mechanic with charge and activation",
 	version = PLUGIN_VERSION,
