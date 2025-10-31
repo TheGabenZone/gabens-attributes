@@ -136,9 +136,11 @@ public void Event_PlayerHurt(Event event, const char[] name, bool dontBroadcast)
 		{
 			int damage = event.GetInt("damageamount");
 			
-			// Add damage to tracker
+			// Add damage to tracker (as percentage)
 			float currentValue = Tracker_GetValue(attacker, "Banner");
-			Tracker_SetValue(attacker, "Banner", currentValue + float(damage));
+			float maxValue = float(damageThreshold);
+			float percentageToAdd = (float(damage) / maxValue) * 100.0;
+			Tracker_SetValue(attacker, "Banner", currentValue + percentageToAdd);
 		}
 	}
 }
@@ -179,7 +181,7 @@ public void OnPlayerPreThink(int client)
 				bool reloadPressed = (buttons & IN_RELOAD) && !(g_iLastButtons[client] & IN_RELOAD);
 				
 				float currentCharge = Tracker_GetValue(client, "Banner");
-				if(reloadPressed && currentCharge >= float(damageThreshold) && !g_bBannerActive[client])
+				if(reloadPressed && currentCharge >= 100.0 && !g_bBannerActive[client])
 				{
 					ActivateBanner(client, weapon);
 				}
@@ -266,8 +268,8 @@ void UpdateBannerTracker(int client)
 		// Create tracker if it doesn't exist (GetValue returns 0.0 for non-existent trackers)
 		// Only create with overwrite=false to preserve existing value
 		Tracker_Create(client, "Banner", false);
-		Tracker_SetMax(client, "Banner", float(damageThreshold));
-		Tracker_SetFlags(client, "Banner", RTF_CLEARONSPAWN);
+		Tracker_SetMax(client, "Banner", 100.0);
+		Tracker_SetFlags(client, "Banner", RTF_CLEARONSPAWN | RTF_PERCENTAGE);
 	}
 	else
 	{
