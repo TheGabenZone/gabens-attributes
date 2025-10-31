@@ -41,9 +41,8 @@ This repository contains some custom attributes that expand weapon customization
 
 **Example attribute usage:**
 ```
-"custom_parachute_enabled" "1"
+"custom_parachute_enabled" "1 0.5 1 0.2"
 "custom_dmg_vs_grounded_players" "1.35"
-"chatgpt_apology" "1"
 "custom_mult_minicrit_dmg" "1.5"
 ```
 ## Credits
