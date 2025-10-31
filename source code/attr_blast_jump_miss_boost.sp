@@ -14,7 +14,7 @@
 
 public Plugin myinfo = 
 {
-	name = "Blast Jump Miss Boost",
+	name = "Attribute: Blast Jump Miss Boost",
 	author = "TheGabenZone",
 	description = "Provides a velocity boost when missing a shot while blast jumping",
 	version = PLUGIN_VERSION,

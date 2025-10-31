@@ -17,7 +17,7 @@
 
 public Plugin myinfo = 
 {
-	name = "Parachute",
+	name = "Attribute: Parachute",
 	author = "TheGabenZone",
 	description = "Enables parachute mechanic for weapons",
 	version = PLUGIN_VERSION,
@@ -31,6 +31,7 @@ float g_flParachuteRedeploy[MAXPLAYERS+1];
 bool g_bParachuteUsedThisJump[MAXPLAYERS+1];
 int g_iParachuteModel[MAXPLAYERS+1] = {-1, ...};
 int g_iLastButtons[MAXPLAYERS+1];
+bool g_bParachuteRemoving[MAXPLAYERS+1]; // Prevents multiple removal calls
 
 public void OnPluginStart()
 {
@@ -74,6 +75,7 @@ void ResetPlayerData(int client)
 	g_flParachuteRedeploy[client] = 0.0;
 	g_bParachuteUsedThisJump[client] = false;
 	g_iLastButtons[client] = 0;
+	g_bParachuteRemoving[client] = false;
 }
 
 public void Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast)
@@ -138,6 +140,13 @@ public void OnPlayerPreThink(int client)
 	if(hasParachute)
 	{
 		HandleParachute(client, buffer);
+	}
+	else if(g_bParachuteActive[client] || g_iParachuteModel[client] != -1)
+	{
+		// Player no longer has parachute attribute, clean up
+		g_bParachuteActive[client] = false;
+		g_bParachuteUsedThisJump[client] = false;
+		RemoveParachuteModel(client);
 	}
 	
 	// Track buttons
@@ -235,8 +244,8 @@ void HandleParachute(int client, const char[] buffer)
 	}
 	else
 	{
-		// Landed - reset for next jump
-		if(g_bParachuteActive[client] || g_bParachuteUsedThisJump[client])
+		// Player is on ground - ensure parachute is removed
+		if(g_bParachuteActive[client] || g_bParachuteUsedThisJump[client] || g_iParachuteModel[client] != -1)
 		{
 			g_bParachuteActive[client] = false;
 			g_bParachuteUsedThisJump[client] = false;
@@ -263,8 +272,20 @@ int ParseAttributeValues(const char[] input, float[] output, int maxValues)
 
 void CreateParachuteModel(int client)
 {
-	// Remove existing model if any
-	RemoveParachuteModel(client);
+	// Don't create a new parachute if we're already in the process of removing one
+	if(g_bParachuteRemoving[client])
+		return;
+	
+	// Remove existing model if any (force removal without animation)
+	if(g_iParachuteModel[client] != -1)
+	{
+		int oldParachute = EntRefToEntIndex(g_iParachuteModel[client]);
+		if(oldParachute > MaxClients && IsValidEntity(oldParachute))
+		{
+			AcceptEntityInput(oldParachute, "Kill");
+		}
+		g_iParachuteModel[client] = -1;
+	}
 	
 	// Create prop_dynamic for parachute
 	int parachute = CreateEntityByName("prop_dynamic_override");
@@ -283,6 +304,9 @@ void CreateParachuteModel(int client)
 	
 	// Set owner
 	SetEntPropEnt(parachute, Prop_Send, "m_hOwnerEntity", client);
+	
+	// Use transmit hook to hide from owner in first person
+	SDKHook(parachute, SDKHook_SetTransmit, Hook_ParachuteTransmit);
 	
 	// Parent to player
 	float pos[3], ang[3];
@@ -303,6 +327,14 @@ void CreateParachuteModel(int client)
 	// Parent to player's head/spine
 	SetVariantString("!activator");
 	AcceptEntityInput(parachute, "SetParent", client);
+	
+	// Hide from owner in first person (only visible to other players and in third person)
+	SetEntProp(parachute, Prop_Send, "m_fEffects", GetEntProp(parachute, Prop_Send, "m_fEffects") | (1 << 0)); // EF_BONEMERGE
+	SetEntProp(parachute, Prop_Send, "m_fEffects", GetEntProp(parachute, Prop_Send, "m_fEffects") | (1 << 4)); // EF_BONEMERGE_FASTCULL
+	
+	// Make it only visible in third person for the owner
+	int flags = GetEntProp(parachute, Prop_Send, "m_fEffects");
+	SetEntProp(parachute, Prop_Send, "m_fEffects", flags | 0x0001); // EF_BONEMERGE
 	
 	// Try setting animation by sequence number (0 = first sequence)
 	SetEntProp(parachute, Prop_Send, "m_nSequence", 0); // deploy should be sequence 0
@@ -329,13 +361,46 @@ public Action Timer_SetParachuteIdle(Handle timer, int userid)
 	return Plugin_Stop;
 }
 
+public Action Hook_ParachuteTransmit(int entity, int client)
+{
+	// Get the owner of the parachute
+	int owner = GetEntPropEnt(entity, Prop_Send, "m_hOwnerEntity");
+	
+	// If the client viewing is the owner
+	if(client == owner)
+	{
+		// Check if owner is in third person
+		if(TF2_IsPlayerInCondition(client, TFCond_Taunting) || 
+		   GetEntProp(client, Prop_Send, "m_nForceTauntCam") > 0)
+		{
+			// In third person - show the parachute
+			return Plugin_Continue;
+		}
+		else
+		{
+			// In first person - hide the parachute
+			return Plugin_Handled;
+		}
+	}
+	
+	// Show to other players
+	return Plugin_Continue;
+}
+
 void RemoveParachuteModel(int client)
 {
+	// Don't remove if already in the process of removing
+	if(g_bParachuteRemoving[client])
+		return;
+	
 	if(g_iParachuteModel[client] != -1)
 	{
 		int parachute = EntRefToEntIndex(g_iParachuteModel[client]);
 		if(parachute > MaxClients && IsValidEntity(parachute))
 		{
+			// Mark as removing to prevent multiple calls
+			g_bParachuteRemoving[client] = true;
+			
 			// Play retract animation (sequence 2)
 			SetEntProp(parachute, Prop_Send, "m_nSequence", 2);
 			SetEntPropFloat(parachute, Prop_Send, "m_flCycle", 0.0);
@@ -355,6 +420,7 @@ void RemoveParachuteModel(int client)
 		{
 			// Entity already invalid, just reset
 			g_iParachuteModel[client] = -1;
+			g_bParachuteRemoving[client] = false;
 		}
 	}
 }
@@ -373,10 +439,11 @@ public Action Timer_KillParachute(Handle timer, DataPack pack)
 		AcceptEntityInput(parachute, "Kill");
 	}
 	
-	// Reset the client's parachute model reference
+	// Reset the client's parachute model reference and removing flag
 	if(client > 0 && client <= MaxClients)
 	{
 		g_iParachuteModel[client] = -1;
+		g_bParachuteRemoving[client] = false;
 	}
 	
 	return Plugin_Stop;
