@@ -338,20 +338,46 @@ void RemoveParachuteModel(int client)
 		{
 			// Play retract animation (sequence 2)
 			SetEntProp(parachute, Prop_Send, "m_nSequence", 2);
+			SetEntPropFloat(parachute, Prop_Send, "m_flCycle", 0.0);
+			SetEntPropFloat(parachute, Prop_Send, "m_flPlaybackRate", 1.0);
 			
-			// Kill entity after retract animation finishes
-			CreateTimer(0.5, Timer_KillParachute, EntIndexToEntRef(parachute), TIMER_FLAG_NO_MAPCHANGE);
+			// Try using SetAnimation input as well
+			SetVariantString("retract");
+			AcceptEntityInput(parachute, "SetAnimation");
+			
+			// Pack client userid and parachute ref for timer
+			DataPack pack;
+			CreateDataTimer(0.5, Timer_KillParachute, pack, TIMER_FLAG_NO_MAPCHANGE);
+			pack.WriteCell(GetClientUserId(client));
+			pack.WriteCell(EntIndexToEntRef(parachute));
 		}
-		g_iParachuteModel[client] = -1;
+		else
+		{
+			// Entity already invalid, just reset
+			g_iParachuteModel[client] = -1;
+		}
 	}
 }
 
-public Action Timer_KillParachute(Handle timer, int entRef)
+public Action Timer_KillParachute(Handle timer, DataPack pack)
 {
+	pack.Reset();
+	int userid = pack.ReadCell();
+	int entRef = pack.ReadCell();
+	
+	int client = GetClientOfUserId(userid);
 	int parachute = EntRefToEntIndex(entRef);
+	
 	if(parachute > MaxClients && IsValidEntity(parachute))
 	{
 		AcceptEntityInput(parachute, "Kill");
 	}
+	
+	// Reset the client's parachute model reference
+	if(client > 0 && client <= MaxClients)
+	{
+		g_iParachuteModel[client] = -1;
+	}
+	
 	return Plugin_Stop;
 }
