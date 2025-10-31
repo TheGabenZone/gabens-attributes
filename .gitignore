@@ -1,0 +1,19 @@
+# SourceMod compiled files
+*.smx
+
+# Keep the compiled files in this project
+!attr_*.smx
+
+# IDE files
+.vscode/
+.idea/
+*.code-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Backup files
+*.bak
+*~
