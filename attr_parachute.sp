@@ -14,6 +14,8 @@
 
 // Constants
 #define PARACHUTE_MODEL "models/workshop/weapons/c_models/c_paratrooper_pack/c_paratrooper_parachute.mdl"
+#define PARACHUTE_OPEN_SOUND "items/para_open.wav"
+#define PARACHUTE_CLOSE_SOUND "items/para_close.wav"
 
 public Plugin myinfo = 
 {
@@ -53,6 +55,10 @@ public void OnMapStart()
 {
 	// Precache parachute model
 	PrecacheModel(PARACHUTE_MODEL);
+	
+	// Precache sounds
+	PrecacheSound(PARACHUTE_OPEN_SOUND);
+	PrecacheSound(PARACHUTE_CLOSE_SOUND);
 }
 
 public void OnClientPutInServer(int client)
@@ -218,6 +224,9 @@ void HandleParachute(int client, const char[] buffer)
 				{
 					g_bParachuteActive[client] = true;
 					CreateParachuteModel(client);
+					
+					// Play open sound
+					EmitSoundToAll(PARACHUTE_OPEN_SOUND, client);
 					
 					// Apply slow falling
 					float vel[3];
@@ -400,6 +409,9 @@ void RemoveParachuteModel(int client)
 		{
 			// Mark as removing to prevent multiple calls
 			g_bParachuteRemoving[client] = true;
+			
+			// Play close sound
+			EmitSoundToAll(PARACHUTE_CLOSE_SOUND, client);
 			
 			// Play retract animation (sequence 2)
 			SetEntProp(parachute, Prop_Send, "m_nSequence", 2);

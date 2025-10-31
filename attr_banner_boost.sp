@@ -6,6 +6,7 @@
 #include <sdkhooks>
 #include <kocwtools>
 #include <tf2c>
+#include <hudframework>
 
 #define PLUGIN_VERSION "1.0.0"
 
@@ -25,20 +26,13 @@ public Plugin myinfo =
 };
 
 // Player data arrays
-int g_iBannerDamage[MAXPLAYERS+1];
 bool g_bBannerActive[MAXPLAYERS+1];
 float g_flBannerEndTime[MAXPLAYERS+1];
 int g_iBannerProvider[MAXPLAYERS+1] = {-1, ...}; // Who is providing banner buff to this player
 int g_iLastButtons[MAXPLAYERS+1];
 
-// HUD synchronizer
-Handle g_hHudSync;
-
 public void OnPluginStart()
 {
-	// Create HUD synchronizer
-	g_hHudSync = CreateHudSynchronizer();
-	
 	// Hook events
 	HookEvent("player_spawn", Event_PlayerSpawn);
 	HookEvent("player_hurt", Event_PlayerHurt);
@@ -70,7 +64,7 @@ public void OnClientDisconnect(int client)
 
 void ResetPlayerData(int client)
 {
-	g_iBannerDamage[client] = 0;
+	Tracker_Remove(client, "Banner");
 	g_bBannerActive[client] = false;
 	g_flBannerEndTime[client] = 0.0;
 	g_iBannerProvider[client] = -1;
@@ -142,7 +136,9 @@ public void Event_PlayerHurt(Event event, const char[] name, bool dontBroadcast)
 		{
 			int damage = event.GetInt("damageamount");
 			
-			g_iBannerDamage[attacker] += damage;
+			// Add damage to tracker
+			float currentValue = Tracker_GetValue(attacker, "Banner");
+			Tracker_SetValue(attacker, "Banner", currentValue + float(damage));
 		}
 	}
 }
@@ -182,7 +178,8 @@ public void OnPlayerPreThink(int client)
 				int buttons = GetClientButtons(client);
 				bool reloadPressed = (buttons & IN_RELOAD) && !(g_iLastButtons[client] & IN_RELOAD);
 				
-				if(reloadPressed && g_iBannerDamage[client] >= damageThreshold && !g_bBannerActive[client])
+				float currentCharge = Tracker_GetValue(client, "Banner");
+				if(reloadPressed && currentCharge >= float(damageThreshold) && !g_bBannerActive[client])
 				{
 					ActivateBanner(client, weapon);
 				}
@@ -206,54 +203,76 @@ public Action Timer_Think(Handle timer)
 	{
 		if(IsClientInGame(i) && IsPlayerAlive(i))
 		{
-			// Update banner charge HUD
-			UpdateBannerChargeHUD(i);
-			
-			// Update banner effects for teammates
+			// Update banner tracker and effects for teammates
+			UpdateBannerTracker(i);
 			UpdateBannerEffects(i);
 		}
 	}
 	return Plugin_Continue;
 }
 
-void UpdateBannerChargeHUD(int client)
+void UpdateBannerTracker(int client)
 {
 	// Check if player has a weapon with banner_boost attribute
-	int weapon = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
-	if(weapon <= MaxClients)
-		return;
-	
+	bool hasBannerBoost = false;
+	int damageThreshold = 0;
 	char buffer[256];
-	if(!AttribHookString(buffer, sizeof(buffer), weapon, ATTR_BANNER_BOOST))
-		return;
 	
-	float values[16];
-	int numValues = ParseAttributeValues(buffer, values, sizeof(values));
-	if(numValues < 3)
-		return;
-	
-	int damageThreshold = RoundToFloor(values[1]);
-	int currentDamage = g_iBannerDamage[client];
-	
-	// Calculate percentage
-	float percentage = (float(currentDamage) / float(damageThreshold)) * 100.0;
-	if(percentage > 100.0)
-		percentage = 100.0;
-	
-	// Display HUD text
-	SetHudTextParams(0.85, 0.70, THINK_INTERVAL + 0.1, 255, 255, 255, 255, 0, 0.0, 0.0, 0.0);
-	
-	if(g_bBannerActive[client])
+	// Check all weapon slots
+	for(int slot = 0; slot < 5; slot++)
 	{
-		ShowSyncHudText(client, g_hHudSync, "Banner: ACTIVE");
+		int weapon = GetPlayerWeaponSlot(client, slot);
+		if(weapon > MaxClients && AttribHookString(buffer, sizeof(buffer), weapon, ATTR_BANNER_BOOST))
+		{
+			float values[16];
+			int numValues = ParseAttributeValues(buffer, values, sizeof(values));
+			if(numValues >= 3)
+			{
+				hasBannerBoost = true;
+				damageThreshold = RoundToFloor(values[1]);
+				break;
+			}
+		}
 	}
-	else if(currentDamage >= damageThreshold)
+	
+	// Check wearables if not found in weapons
+	if(!hasBannerBoost)
 	{
-		ShowSyncHudText(client, g_hHudSync, "Banner: READY! Press [RELOAD] to activate");
+		int wearable = -1;
+		while((wearable = FindEntityByClassname(wearable, "tf_wearable")) != -1)
+		{
+			if(GetEntPropEnt(wearable, Prop_Send, "m_hOwnerEntity") == client)
+			{
+				if(AttribHookString(buffer, sizeof(buffer), wearable, ATTR_BANNER_BOOST))
+				{
+					float values[16];
+					int numValues = ParseAttributeValues(buffer, values, sizeof(values));
+					if(numValues >= 3)
+					{
+						hasBannerBoost = true;
+						damageThreshold = RoundToFloor(values[1]);
+						break;
+					}
+				}
+			}
+		}
+	}
+	
+	if(hasBannerBoost)
+	{
+		// Check if tracker already exists
+		float currentValue = Tracker_GetValue(client, "Banner");
+		
+		// Create tracker if it doesn't exist (GetValue returns 0.0 for non-existent trackers)
+		// Only create with overwrite=false to preserve existing value
+		Tracker_Create(client, "Banner", false);
+		Tracker_SetMax(client, "Banner", float(damageThreshold));
+		Tracker_SetFlags(client, "Banner", RTF_CLEARONSPAWN);
 	}
 	else
 	{
-		ShowSyncHudText(client, g_hHudSync, "Banner Charge: %d / %d (%.0f%%)", currentDamage, damageThreshold, percentage);
+		// Remove tracker if no banner boost attribute
+		Tracker_Remove(client, "Banner");
 	}
 }
 
@@ -275,12 +294,13 @@ void UpdateBannerEffects(int client)
 			
 			float values[16];
 			int numValues = ParseAttributeValues(buffer, values, sizeof(values));
-			if(numValues < 6)
+			if(numValues < 7)
 				continue;
 			
 			float duration = values[2];
 			float bannerRange = values[3];
 			bool affectTeammates = values[4] > 0.0;
+			bool affectEnemies = values[5] > 0.0;
 			
 			// Check if this banner affects teammates and if we're on the same team
 			if(affectTeammates && TF2_GetClientTeam(client) == TF2_GetClientTeam(provider))
@@ -299,7 +319,40 @@ void UpdateBannerEffects(int client)
 						g_iBannerProvider[client] = provider;
 						
 						// Apply conditions
-						for(int j = 5; j < numValues; j++)
+						for(int j = 6; j < numValues; j++)
+						{
+							int condId = RoundToFloor(values[j]);
+							if(condId > 0)
+							{
+								float remainingTime = g_flBannerEndTime[provider] - GetGameTime();
+								if(remainingTime > 0.0)
+								{
+									TF2_AddCondition(client, view_as<TFCond>(condId), remainingTime);
+								}
+							}
+						}
+					}
+					return; // Found an active banner provider
+				}
+			}
+			// Check if this banner affects enemies and if we're on different teams
+			else if(affectEnemies && TF2_GetClientTeam(client) != TF2_GetClientTeam(provider))
+			{
+				// Check distance
+				float clientPos[3], providerPos[3];
+				GetClientAbsOrigin(client, clientPos);
+				GetClientAbsOrigin(provider, providerPos);
+				float distance = GetVectorDistance(clientPos, providerPos);
+				
+				if(distance <= bannerRange)
+				{
+					// Within range - ensure conditions are applied
+					if(g_iBannerProvider[client] != provider)
+					{
+						g_iBannerProvider[client] = provider;
+						
+						// Apply conditions
+						for(int j = 6; j < numValues; j++)
 						{
 							int condId = RoundToFloor(values[j]);
 							if(condId > 0)
@@ -335,9 +388,9 @@ void UpdateBannerEffects(int client)
 				{
 					float values[16];
 					int numValues = ParseAttributeValues(buffer, values, sizeof(values));
-					if(numValues >= 6)
+					if(numValues >= 7)
 					{
-						for(int j = 5; j < numValues; j++)
+						for(int j = 6; j < numValues; j++)
 						{
 							int condId = RoundToFloor(values[j]);
 							if(condId > 0)
@@ -360,17 +413,17 @@ void ActivateBanner(int client, int weapon)
 	
 	float values[16];
 	int numValues = ParseAttributeValues(buffer, values, sizeof(values));
-	if(numValues < 6)
+	if(numValues < 7)
 		return;
 	
 	float duration = values[2];
 	
 	g_bBannerActive[client] = true;
 	g_flBannerEndTime[client] = GetGameTime() + duration;
-	g_iBannerDamage[client] = 0;
+	Tracker_SetValue(client, "Banner", 0.0);
 	
 	// Apply conditions to the banner owner (self)
-	for(int j = 5; j < numValues; j++)
+	for(int j = 6; j < numValues; j++)
 	{
 		int condId = RoundToFloor(values[j]);
 		if(condId > 0)
