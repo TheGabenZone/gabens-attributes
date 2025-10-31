@@ -177,6 +177,10 @@ void ActivateBonk(int client, int weapon)
 	// Apply invulnerability
 	TF2_AddCondition(client, view_as<TFCond>(52), duration);
 	
+	// Enable third person
+	SetVariantInt(1);
+	AcceptEntityInput(client, "SetForcedTauntCam");
+	
 	// Schedule marked for death
 	DataPack pack;
 	CreateDataTimer(duration, Timer_ApplyMarkedForDeath, pack);
@@ -202,6 +206,10 @@ public Action Timer_ApplyMarkedForDeath(Handle timer, DataPack pack)
 void DeactivateBonk(int client)
 {
 	g_bBonkActive[client] = false;
+	
+	// Disable third person (return to first person)
+	SetVariantInt(0);
+	AcceptEntityInput(client, "SetForcedTauntCam");
 }
 
 int ParseAttributeValues(const char[] input, float[] output, int maxValues)
