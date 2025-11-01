@@ -10,7 +10,7 @@ This repository contains some custom attributes that expand weapon customization
 - Team Fortress 2 Classic Linux Server (Ubuntu 24.04 LTS)
 - SourceMod 1.10 or newer
 - [KOCWTools](https://github.com/Reagy/TF2Classic-KO-Custom-Weapons/blob/main/assets_sourcemod/source%20code/kocwtools.sp) plugin file
-- [HUDFramework] (https://github.com/Reagy/TF2Classic-KO-Custom-Weapons/blob/main/assets_sourcemod/source%20code/hudframework.sp) plugin file
+- [HUDFramework](https://github.com/Reagy/TF2Classic-KO-Custom-Weapons/blob/main/assets_sourcemod/source%20code/hudframework.sp) plugin file
 - [TF2CTools](https://github.com/tf2classic/SM-TF2Classic-Tools/releases/tag/tf2ctools-2.2.0) plugin file  
 
 ### Server Installation
