@@ -189,15 +189,25 @@ void CheckProjectile(int entityRef)
 	if(owner < 1 || owner > MaxClients)
 		return;
 	
-	// Get the weapon that fired this projectile
-	int weapon = GetEntPropEnt(owner, Prop_Send, "m_hActiveWeapon");
-	
-	if(weapon <= MaxClients)
-		return;
-	
-	// Check if weapon has the incinerator gas attribute
+	// Check all weapons in the player's inventory for the attribute
+	int weapon = -1;
 	char buffer[256];
-	if(!AttribHookString(buffer, sizeof(buffer), weapon, ATTR_INCINERATOR_GAS))
+	bool foundAttribute = false;
+	
+	for(int i = 0; i < 8; i++) // Check all weapon slots
+	{
+		weapon = GetPlayerWeaponSlot(owner, i);
+		if(weapon > MaxClients && IsValidEntity(weapon))
+		{
+			if(AttribHookString(buffer, sizeof(buffer), weapon, ATTR_INCINERATOR_GAS))
+			{
+				foundAttribute = true;
+				break;
+			}
+		}
+	}
+	
+	if(!foundAttribute)
 		return;
 	
 	float values[6];
@@ -390,6 +400,9 @@ void CreateGasCloud(float position[3], int owner, float igniteDuration, float af
 		RemoveGasCloud(0);
 		slot = 0;
 	}
+	
+	// Play gas deployment sound at the cloud location
+	EmitSoundToAll("items/gas_can_explode.wav", SOUND_FROM_WORLD, SNDCHAN_AUTO, SNDLEVEL_NORMAL, SND_NOFLAGS, 1.0, SNDPITCH_NORMAL, -1, position);
 	
 	// Get team-specific particle name
 	int team = GetClientTeam(owner);
