@@ -22,10 +22,12 @@ This repository contains some custom attributes that expand weapon customization
    addons/sourcemod/plugins/
    ```
 
-3. **Copy asset files** (for parachute attribute):
+3. **Copy asset files**:
    ```
    downloads/materials/ -> Your materials folder
    downloads/models/ -> Your models folder
+   downloads/sound/ -> Your sounds folder
+   downloads/particles/ -> Your particles folder
    ```
 
 4. **Restart server** or load plugins manually:
@@ -33,29 +35,22 @@ This repository contains some custom attributes that expand weapon customization
    sm plugins load attr_banner_boost
    sm plugins load attr_blast_jump_miss_boost
    sm plugins load attr_bonk_consumption
-   sm plugins load attr_chatgpt_apology
    sm plugins load attr_dmg_vs_grounded
    sm plugins load attr_jump_while_charging
    sm plugins load attr_mult_minicrit
    sm plugins load attr_parachute
+   etc.
    ```
 
 **Example attribute usage:**
 ```
 "custom_parachute_enabled" "1 0.5 1 0.2"
-"custom_dmg_vs_grounded_players" "1.35"
-"custom_mult_minicrit_dmg" "1.5"
+"custom_dmg_vs_grounded_players" "0.5"
+"custom_mult_minicrit_dmg" "2.0"
 ```
 ## Credits
 
-**Author:** TheGabenZone  
-**Version:** 1.0.0 (all plugins)
-
-### Dependencies
-- SourceMod
-- KOCWTools by Noclue
-- HUDFramework by Noclue
-- TF2CTools by Scag / TF2Classic Team
+**Author:** TheGabenZone
 
 ## License
 
